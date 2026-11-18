@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pod Pijanym Smokiem</title>
+<style>
+body { font-family: Arial, sans-serif; background: #1a120b; color: #f0e6d2; margin: 0; padding: 10px; }
+h1 { color: #d4af37; text-align: center; margin: 8px 0; }
+.top-bar { display: flex; justify-content: space-between; background: #2c1810; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #8b5a2b; flex-wrap: wrap; gap: 8px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.card { background: #2c1810; border: 3px solid #8b5a2b; border-radius: 12px; padding: 8px; text-align: center; position: relative; }
+.card.locked { opacity: 0.55; filter: grayscale(0.7); }
+.card img { width: 100%; height: auto; max-height: 420px; object-fit: contain; background: #1a120b; border-radius: 10px; cursor: pointer; }
+.card .name { font-size: 1.2em; margin: 8px 0 2px; font-weight: bold; }
+.card .role { margin: 0 0 6px; opacity: 0.8; font-size: 0.9em; }
+.income { color: #a0e0a0; font-weight: bold; font-size: 0.95em; margin: 4px 0; }
+button { background: #8b5a2b; color: white; border: none; padding: 10px 14px; margin: 4px; border-radius: 6px; cursor: pointer; font-size: 15px; }
+button:hover { background: #a06a35; }
+button:disabled { background: #555; cursor: not-allowed; }
+
+/* Modal */
+.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 100; justify-content: center; align-items: center; padding: 15px; }
+.modal.active { display: flex; }
+.modal-content { background: #2c1810; border: 3px solid #8b5a2b; border-radius: 12px; padding: 18px; max-width: 420px; width: 100%; text-align: center; }
+.modal-content img { width: 100%; height: auto; max-height: 360px; object-fit: contain; background: #1a120b; border-radius: 10px; margin-bottom: 10px; }
+.bar { background: #444; border-radius: 5px; height: 18px; margin: 8px 0; overflow: hidden; }
+.fill { background: #d4af37; height: 100%; transition: width 0.3s; }
+.close-btn { position: absolute; top: 8px; right: 12px; background: none; border: none; color: #f0e6d2; font-size: 28px; cursor: pointer; }
+#log { margin-top: 15px; font-style: italic; min-height: 30px; text-align: center; }
+
+.side-panel {
+  position: fixed;
+  top: 0;
+  right: -400px;
+  width: 380px;
+  height: 100%;
+  background: #1a120b;
+  border-left: 3px solid #8b5a2b;
+  box-shadow: -5px 0 15px rgba(0,0,0,0.6);
+  z-index: 1000;
+  transition: right 0.3s ease;
+  overflow-y: auto;
+  padding: 20px;
+  box-sizing: border-box;
+}
+.side-panel.open { right: 0; }
+.side-panel h2 { margin-top: 0; color: #f0e6d2; }
+.girl-btn {
+  display: block;
+  width: 100%;
+  margin: 6px 0;
+  padding: 10px;
+  background: #3a2a1a;
+  color: #f0e6d2;
+  border: 1px solid #8b5a2b;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+.girl-btn:hover { background: #4a3a2a; }
+.photo-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.photo-grid img {
+  width: 100px;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 2px solid #8b5a2b;
+}
+
+</style>
+</head>
+<body>
+<h1>Pod Pijanym Smokiem</h1>
+<div class="top-bar">
+  <div>Książę poziom: <strong id="princeLevel">1</strong></div>
+  <div>Złoto: <strong id="gold">0</strong></div>
+  <div>Szmaragdy: <strong id="emeralds">0</strong></div>
+  <div>Tawerna: <strong id="tavernLevel">1</strong></div>
+</div>
+<div class="cards" id="cards"></div>
+<div style="text-align:center; margin-top:15px;">
+  <button onclick="upgradeTavern()">Ulepsz Tawernę (<span id="upgradeCost">200</span> złota)</button>
+  <button onclick="openChest()">Otwórz Skrzynkę Losu (5 szmaragdów)</button>
+  <button onclick="openCollection()">Kolekcja Zdjęć</button>
+  <button onclick="addTestEmeralds()" style="background:#2a5a2a;">+10 Szmaragdów (test)</button>
+</div>
+<p id="log"></p>
+
+
+<!-- Side Collection Panel -->
+<div class="side-panel" id="collectionPanel">
+  <button class="close-btn" onclick="closeCollection()" style="float:right;">&times;</button>
+  <h2>Kolekcja</h2>
+  <div id="collectionGirls"></div>
+  <div id="collectionPhotos" class="photo-grid"></div>
+  <p id="collectionInfo" style="margin-top:15px; font-style:italic; color:#ccc;"></p>
+</div>
+
+<!-- Modal -->
+<div class="modal" id="modal">
+  <div class="modal-content" style="position:relative;">
+    <button class="close-btn" onclick="closeModal()">&times;</button>
+    <h2 id="modalName"></h2>
+    <p id="modalRole"></p>
+    <img id="modalImg" src="" alt="" style="max-height:280px; object-fit:contain; background:#1a120b;">
+    <div id="gallery" style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin:8px 0;"></div>
+    <p>Relacja: <strong id="modalRelLevel"></strong> / 10</p>
+    <div class="bar"><div class="fill" id="modalRelBar" style="width:0%"></div></div>
+    <p>XP relacji: <span id="modalRelXp"></span> / <span id="modalRelNeed"></span></p>
+    <p class="income" id="modalIncome"></p>
+    <div>
+      <button onclick="interactFromModal('flirt')">Flirtuj</button>
+      <button onclick="interactFromModal('talk')">Rozmawiaj</button>
+    </div>
+    <div id="chatBox" style="background:#2a1f14; border-radius:8px; padding:10px; margin-top:12px; max-height:180px; overflow-y:auto; font-size:14px;"></div>
+    <div style="display:flex; margin-top:8px;">
+      <input id="chatInput" type="text" placeholder="Napisz coś..." style="flex:1; padding:8px; border-radius:6px; border:none; background:#3a2a1a; color:#f0e6d2;">
+      <button onclick="sendChat()" style="margin-left:6px;">Wyślij</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const girls = [
+  {
+    id: "kasia",
+    name: "Kasia",
+    role: "Kelnerka",
+    unlockTavern: 1,
+    img1: "Kc047.jpg",
+    img2: "Kasia_lvl3.gif",
+    img4: "Kasia_lvl4.jpg",
+    img5: "Kasia_lvl5.gif",
+    relLevel: 1,
+    relXp: 0,
+    baseIncome: 1,
+    interval: 20
+  },
+  {
+    id: "lena",
+    name: "Lena",
+    role: "Mieszkanka",
+    unlockTavern: 2,
+    img1: "Lena_lvl1.jpg",
+    img2_mid: "Lena_lvl2.gif",
+    img2: "Lena_lvl3.jpg",
+    relLevel: 1,
+    relXp: 0,
+    baseIncome: 1.5,
+    interval: 25
+  },
+  {
+    id: "zosia",
+    name: "Zosia",
+    role: "Mieszkanka",
+    unlockTavern: 3,
+    img1: "Zosia_lvl1.jpg",
+    img2: "S0d1D.jpg",
+    relLevel: 1,
+    relXp: 0,
+    baseIncome: 1.2,
+    interval: 22
+  },
+  {
+    id: "marta",
+    name: "Marta",
+    role: "Właścicielka",
+    unlockTavern: 4,
+    img1: "Marta_lvl1.jpg",
+    img2: "S0d1D.jpg",
+    relLevel: 1,
+    relXp: 0,
+    baseIncome: 3,
+    interval: 30
+  }
+];
+
+let gold = 0;
+let emeralds = 0;
+let tavernLevel = 1;
+let lastTick = Date.now();
+let currentModalGirl = null;
+
+function relNeeded(level) {
+  return Math.floor(40 * Math.pow(level, 1.25));
+}
+
+function totalRelLevel() {
+  return girls.reduce((sum, g) => sum + (isUnlocked(g) ? g.relLevel : 0), 0);
+}
+
+function princeLevel() {
+  return Math.max(1, Math.floor(totalRelLevel() / 2) + 1);
+}
+
+function isUnlocked(girl) {
+  return tavernLevel >= girl.unlockTavern;
+}
+
+function currentIncome(girl) {
+  if (!isUnlocked(girl)) return 0;
+  if (girl.id === "kasia") {
+    const kasiaIncome = {1: 1, 2: 2, 3: 5, 4: 10, 5: 20};
+    return kasiaIncome[girl.relLevel] || (girl.relLevel >= 5 ? 20 * Math.pow(1.5, girl.relLevel - 5) : 1);
+  }
+  return girl.baseIncome * girl.relLevel;
+}
+
+function getImg(girl) {
+  if (girl.relLevel >= 5 && girl.img5) return girl.img5;
+  if (girl.relLevel >= 4 && girl.img4) return girl.img4;
+  if (girl.relLevel >= 3) return girl.img2;
+  if (girl.relLevel >= 2 && girl.img2_mid) return girl.img2_mid;
+  return girl.img1;
+}
+
+function render() {
+  const container = document.getElementById("cards");
+  container.innerHTML = "";
+  girls.forEach(girl => {
+    const unlocked = isUnlocked(girl);
+    const card = document.createElement("div");
+    card.className = "card" + (unlocked ? "" : " locked");
+    const imgSrc = unlocked ? getImg(girl) : "";
+    const income = currentIncome(girl);
+    card.innerHTML = `
+      ${unlocked 
+        ? `<img src="${imgSrc}" alt="${girl.name}" onclick="openModal('${girl.id}')">`
+        : `<div style="min-height:280px; height:auto;display:flex;align-items:center;justify-content:center;background:#3a2418;border-radius:10px;font-size:1.1em;">Zablokowana</div>`}
+      <div class="name">${girl.name}</div>
+      <div class="role">${girl.role}</div>
+      <div class="income">${unlocked ? `+${income.toFixed(1)} złota / ${girl.interval}s` : "Ulepsz tawernę"}</div>
+    `;
+    container.appendChild(card);
+  });
+
+  document.getElementById("princeLevel").textContent = princeLevel();
+  document.getElementById("gold").textContent = Math.floor(gold);
+  document.getElementById("emeralds").textContent = emeralds;
+  document.getElementById("tavernLevel").textContent = tavernLevel;
+  document.getElementById("upgradeCost").textContent = 200 * tavernLevel;
+
+  // Update modal if open
+  if (currentModalGirl) updateModal();
+}
+
+function openModal(id) {
+  const girl = girls.find(g => g.id === id);
+  if (!girl || !isUnlocked(girl)) return;
+  currentModalGirl = girl;
+  document.getElementById("modal").classList.add("active");
+  updateModal();
+}
+
+function closeModal() {
+  document.getElementById("modal").classList.remove("active");
+  currentModalGirl = null;
+}
+
+function updateModal() {
+  if (!currentModalGirl) return;
+  const g = currentModalGirl;
+  document.getElementById("modalName").textContent = g.name;
+  document.getElementById("modalRole").textContent = g.role;
+  document.getElementById("modalImg").src = getImg(g);
+  document.getElementById("modalRelLevel").textContent = g.relLevel;
+  const need = relNeeded(g.relLevel);
+  document.getElementById("modalRelXp").textContent = g.relXp;
+  document.getElementById("modalRelNeed").textContent = need;
+  document.getElementById("modalRelBar").style.width = (g.relXp / need * 100) + "%";
+  document.getElementById("modalIncome").textContent = `+${currentIncome(g).toFixed(1)} złota / ${g.interval}s`;
+
+  // Gallery of unlocked images
+  const gallery = document.getElementById("gallery");
+  gallery.innerHTML = "";
+  const images = [];
+  if (g.img1) images.push({src: g.img1, lvl: 1});
+  if (g.img2_mid && g.relLevel >= 2) images.push({src: g.img2_mid, lvl: 2});
+  if (g.img2 && g.relLevel >= 3) images.push({src: g.img2, lvl: 3});
+  if (g.img4 && g.relLevel >= 4) images.push({src: g.img4, lvl: 4});
+  if (g.img5 && g.relLevel >= 5) images.push({src: g.img5, lvl: 5});
+  images.forEach(img => {
+    const thumb = document.createElement("img");
+    thumb.src = img.src;
+    thumb.style.width = "60px";
+    thumb.style.height = "80px";
+    thumb.style.objectFit = "cover";
+    thumb.style.borderRadius = "4px";
+    thumb.style.cursor = "pointer";
+    thumb.style.border = "2px solid #8b5a2b";
+    thumb.onclick = () => { document.getElementById("modalImg").src = img.src; };
+    gallery.appendChild(thumb);
+  });
+
+  // Clear chat when opening
+  document.getElementById("chatBox").innerHTML = `<div style="color:#aaa; font-style:italic;">Rozmowa z ${g.name}...</div>`;
+}
+
+function sendChat() {
+  if (!currentModalGirl) return;
+  const input = document.getElementById("chatInput");
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+
+  const chat = document.getElementById("chatBox");
+  chat.innerHTML += `<div style="margin:6px 0; text-align:right;"><span style="background:#5a3a1a; padding:4px 8px; border-radius:8px;">Ty: ${text}</span></div>`;
+
+  // Simple responses based on level and keywords
+  const g = currentModalGirl;
+  let reply = "Hmm...";
+  const lower = text.toLowerCase();
+  if (lower.includes("cześć") || lower.includes("hej") || lower.includes("witaj")) {
+    reply = g.relLevel >= 3 ? "Cześć przystojniaku~" : "Cześć.";
+  } else if (lower.includes("ładna") || lower.includes("piękna") || lower.includes("sexy")) {
+    reply = g.relLevel >= 4 ? "Dziękuję... podoba Ci się to, co widzisz?" : "Och, dziękuję.";
+  } else if (lower.includes("flirt") || lower.includes("pocałuj") || lower.includes("kocham")) {
+    reply = g.relLevel >= 5 ? "Może później pokażę Ci więcej..." : "Jeszcze za wcześnie na takie rzeczy.";
+  } else if (g.relLevel >= 3) {
+    const replies = ["Opowiedz mi coś o sobie...", "Lubię z Tobą rozmawiać.", "Masz ochotę na coś więcej?", "Jesteś inny niż inni goście."];
+    reply = replies[Math.floor(Math.random() * replies.length)];
+  } else {
+    const replies = ["Tak?", "Słucham.", "Hmm.", "Może później."];
+    reply = replies[Math.floor(Math.random() * replies.length)];
+  }
+
+  setTimeout(() => {
+    chat.innerHTML += `<div style="margin:6px 0;"><span style="background:#3a2a1a; padding:4px 8px; border-radius:8px;">${g.name}: ${reply}</span></div>`;
+    chat.scrollTop = chat.scrollHeight;
+    // Small XP for chatting
+    g.relXp += 1;
+    while (g.relXp >= relNeeded(g.relLevel) && g.relLevel < 10) {
+      g.relXp -= relNeeded(g.relLevel);
+      g.relLevel++;
+    }
+    updateModal();
+    saveGame();
+  }, 600);
+}
+
+
+function interactFromModal(type) {
+  if (!currentModalGirl) return;
+  interact(currentModalGirl.id, type);
+}
+
+function interact(id, type) {
+  const girl = girls.find(g => g.id === id);
+  if (!girl || !isUnlocked(girl)) return;
+  const gain = type === "flirt" ? 8 : 5;
+  girl.relXp += gain;
+  while (girl.relXp >= relNeeded(girl.relLevel) && girl.relLevel < 10) {
+    girl.relXp -= relNeeded(girl.relLevel);
+    girl.relLevel++;
+    log(`${girl.name}: relacja wzrosła do ${girl.relLevel}!`);
+  }
+  log(`Interakcja z ${girl.name}.`);
+  render(); saveGame();
+}
+
+function upgradeTavern() {
+  const cost = 200 * tavernLevel;
+  if (gold >= cost && tavernLevel < 4) {
+    gold -= cost;
+    tavernLevel++;
+    log(`Tawerna ulepszona do poziomu ${tavernLevel}!`);
+  } else if (tavernLevel >= 4) {
+    log("Tawerna jest już maksymalnie ulepszona.");
+  } else {
+    log("Za mało złota.");
+  }
+  render(); saveGame();
+}
+
+
+function saveGame() {
+  const data = {
+    gold,
+    emeralds,
+    tavernLevel,
+    girls: girls.map(g => ({id: g.id, relLevel: g.relLevel, relXp: g.relXp})),
+    ownedExclusive
+  };
+  localStorage.setItem("tavernGame", JSON.stringify(data));
+}
+
+function loadGame() {
+  const raw = localStorage.getItem("tavernGame");
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    gold = data.gold || 0;
+    emeralds = data.emeralds || 0;
+    tavernLevel = data.tavernLevel || 1;
+    if (data.ownedExclusive) ownedExclusive = data.ownedExclusive;
+    if (data.girls) {
+      data.girls.forEach(saved => {
+        const girl = girls.find(g => g.id === saved.id);
+        if (girl) {
+          girl.relLevel = saved.relLevel || 1;
+          girl.relXp = saved.relXp || 0;
+        }
+      });
+    }
+  } catch(e) {}
+}
+
+// Load on start
+loadGame();
+
+// Auto-save every 10 seconds and on important actions
+setInterval(saveGame, 10000);
+
+
+
+
+// Exclusive photos only from chests
+const exclusivePhotos = {
+  kasia: [
+    {id: "kasia_ex1", src: "Kasia_lvl4.jpg", name: "Zaplecze - specjalne"},
+    {id: "kasia_ex2", src: "Kasia_lvl5.gif", name: "Specjalna scena"}
+  ],
+  lena: [
+    {id: "lena_ex1", src: "Lena_lvl2.gif", name: "Animowana specjalna"},
+    {id: "lena_ex2", src: "Lena_lvl3.jpg", name: "Bielizna specjalna"}
+  ],
+  zosia: [
+    {id: "zosia_ex1", src: "Zosia_lvl1.jpg", name: "Czerwona specjalna"}
+  ],
+  marta: [
+    {id: "marta_ex1", src: "Marta_lvl1.jpg", name: "Za barem specjalna"}
+  ]
+};
+
+let ownedExclusive = {}; // { girlId: [photoIds] }
+
+function openCollection() {
+  document.getElementById("collectionPanel").classList.add("open");
+  renderCollection();
+}
+
+function closeCollection() {
+  document.getElementById("collectionPanel").classList.remove("open");
+}
+
+function renderCollection() {
+  const girlsDiv = document.getElementById("collectionGirls");
+  girlsDiv.innerHTML = "";
+  girls.forEach(g => {
+    if (!isUnlocked(g)) return;
+    const btn = document.createElement("button");
+    btn.className = "girl-btn";
+    btn.textContent = g.name + " (rel. " + g.relLevel + ")";
+    btn.onclick = () => showGirlCollection(g.id);
+    girlsDiv.appendChild(btn);
+  });
+  document.getElementById("collectionPhotos").innerHTML = "";
+  document.getElementById("collectionInfo").textContent = "Wybierz dziewczynę po lewej.";
+}
+
+function showGirlCollection(girlId) {
+  const girl = girls.find(g => g.id === girlId);
+  if (!girl) return;
+  const photosDiv = document.getElementById("collectionPhotos");
+  photosDiv.innerHTML = "";
+
+  // Regular tavern photos based on relationship level
+  const regular = [];
+  if (girl.img1) regular.push({src: girl.img1, name: "Poziom 1"});
+  if (girl.img2_mid && girl.relLevel >= 2) regular.push({src: girl.img2_mid, name: "Poziom 2"});
+  if (girl.img2 && girl.relLevel >= 3) regular.push({src: girl.img2, name: "Poziom 3"});
+  if (girl.img4 && girl.relLevel >= 4) regular.push({src: girl.img4, name: "Poziom 4"});
+  if (girl.img5 && girl.relLevel >= 5) regular.push({src: girl.img5, name: "Poziom 5"});
+
+  // Exclusive from chests
+  const owned = ownedExclusive[girlId] || [];
+  const exclusive = (exclusivePhotos[girlId] || []).filter(p => owned.includes(p.id));
+
+  const all = [...regular, ...exclusive];
+  if (all.length === 0) {
+    document.getElementById("collectionInfo").textContent = `${girl.name}: brak zdjęć.`;
+    return;
+  }
+
+  document.getElementById("collectionInfo").textContent = `${girl.name} — ${all.length} zdjęć`;
+  all.forEach(photo => {
+    const img = document.createElement("img");
+    img.src = photo.src;
+    img.title = photo.name;
+    img.onclick = () => {
+      document.getElementById("modalImg").src = photo.src;
+      document.getElementById("modalName").textContent = girl.name + " — " + photo.name;
+      document.getElementById("modal").classList.add("active");
+      currentModalGirl = girl;
+    };
+    photosDiv.appendChild(img);
+  });
+}
+
+// Update openChest to sometimes give exclusive photo
+
+function openChest() {
+  const cost = 5;
+  if (emeralds < cost) {
+    log("Za mało szmaragdów! (potrzeba 5)");
+    return;
+  }
+  emeralds -= cost;
+
+  // Possible rewards: random girl + random unlocked-style image
+  const possibleGirls = girls.filter(g => isUnlocked(g));
+  if (possibleGirls.length === 0) {
+    emeralds += cost; // refund
+    log("Najpierw odblokuj jakąś dziewczynę.");
+    return;
+  }
+
+  const girl = possibleGirls[Math.floor(Math.random() * possibleGirls.length)];
+  const rewards = ["bonus_gold", "relation_xp", "special_photo"];
+  const reward = rewards[Math.floor(Math.random() * rewards.length)];
+
+  let msg = "";
+  if (reward === "bonus_gold") {
+    const bonus = 50 + Math.floor(Math.random() * 150);
+    gold += bonus;
+    msg = `Skrzynka: +${bonus} złota!`;
+  } else if (reward === "relation_xp") {
+    const xp = 15 + Math.floor(Math.random() * 25);
+    girl.relXp += xp;
+    while (girl.relXp >= relNeeded(girl.relLevel) && girl.relLevel < 10) {
+      girl.relXp -= relNeeded(girl.relLevel);
+      girl.relLevel++;
+    }
+    msg = `${girl.name} dostała +${xp} XP relacji ze skrzynki!`;
+  } else {
+    // Exclusive photo from chest
+    const available = (exclusivePhotos[girl.id] || []).filter(p => !(ownedExclusive[girl.id] || []).includes(p.id));
+    if (available.length > 0) {
+      const photo = available[Math.floor(Math.random() * available.length)];
+      if (!ownedExclusive[girl.id]) ownedExclusive[girl.id] = [];
+      ownedExclusive[girl.id].push(photo.id);
+      msg = `Skrzynka: nowe specjalne zdjęcie ${girl.name} - "${photo.name}"!`;
+    } else {
+      const xp = 25;
+      girl.relXp += xp;
+      while (girl.relXp >= relNeeded(girl.relLevel) && girl.relLevel < 10) {
+        girl.relXp -= relNeeded(girl.relLevel);
+        girl.relLevel++;
+      }
+      msg = `${girl.name} ma już wszystkie specjalne zdjęcia. +${xp} XP.`;
+    }
+  }
+
+  log(msg);
+  render();
+  saveGame();
+}
+
+// Temporary way to get emeralds for testing (can remove later)
+function addTestEmeralds() {
+  emeralds += 10;
+  log("+10 szmaragdów (test)");
+  render();
+  saveGame();
+}
+
+function doLottery() {
+  const cost = 50;
+  if (gold < cost) {
+    log("Za mało złota na losowanie!");
+    return;
+  }
+  gold -= cost;
+  const roll = Math.random();
+  let msg = "";
+
+  if (roll < 0.40) {
+    const bonus = Math.floor(20 + Math.random() * 80);
+    gold += bonus;
+    msg = `Wylosowałeś +${bonus} złota!`;
+  } else if (roll < 0.70) {
+    const unlocked = girls.filter(g => isUnlocked(g) && g.relLevel < 10);
+    if (unlocked.length > 0) {
+      const girl = unlocked[Math.floor(Math.random() * unlocked.length)];
+      const xp = 10 + Math.floor(Math.random() * 20);
+      girl.relXp += xp;
+      while (girl.relXp >= relNeeded(girl.relLevel) && girl.relLevel < 10) {
+        girl.relXp -= relNeeded(girl.relLevel);
+        girl.relLevel++;
+      }
+      msg = `${girl.name} dostała +${xp} XP relacji!`;
+    } else {
+      gold += 30;
+      msg = "Brak dziewczyn do ulepszenia — +30 złota.";
+    }
+  } else if (roll < 0.90) {
+    const bonus = Math.floor(50 + Math.random() * 150);
+    gold += bonus;
+    msg = `Duża wygrana! +${bonus} złota!`;
+  } else {
+    msg = "Nic nie wylosowałeś...";
+  }
+
+  log(msg);
+  render();
+  saveGame();
+}
+
+function tick() {
+  const now = Date.now();
+  const delta = (now - lastTick) / 1000;
+  lastTick = now;
+  girls.forEach(girl => {
+    if (isUnlocked(girl)) {
+      const incomePerSec = currentIncome(girl) / girl.interval;
+      gold += incomePerSec * delta;
+    }
+  });
+  // Update gold display without full re-render every second if possible, but simple is fine
+  document.getElementById("gold").textContent = Math.floor(gold);
+  document.getElementById("emeralds").textContent = emeralds;
+}
+
+function log(msg) {
+  document.getElementById("log").textContent = msg;
+}
+
+// Close modal on background click
+document.getElementById("modal").addEventListener("click", function(e) {
+  if (e.target === this) closeModal();
+});
+
+setInterval(tick, 1000);
+render(); saveGame();
+</script>
+</body>
+</html>
