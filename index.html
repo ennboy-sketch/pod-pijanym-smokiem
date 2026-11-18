@@ -162,7 +162,6 @@ const girls = [
     role: "Mieszkanka",
     unlockTavern: 3,
     img1: "Zosia_lvl1.jpg",
-    img2: "S0d1D.jpg",
     relLevel: 1,
     relXp: 0,
     baseIncome: 1.2,
@@ -174,7 +173,6 @@ const girls = [
     role: "Właścicielka",
     unlockTavern: 4,
     img1: "Marta_lvl1.jpg",
-    img2: "S0d1D.jpg",
     relLevel: 1,
     relXp: 0,
     baseIncome: 3,
@@ -216,7 +214,8 @@ function currentIncome(girl) {
 function getImg(girl) {
   if (girl.relLevel >= 5 && girl.img5) return girl.img5;
   if (girl.relLevel >= 4 && girl.img4) return girl.img4;
-  if (girl.relLevel >= 3) return girl.img2;
+  if (girl.relLevel >= 3 && girl.img3) return girl.img3;
+  if (girl.relLevel >= 2 && girl.img2) return girl.img2;
   if (girl.relLevel >= 2 && girl.img2_mid) return girl.img2_mid;
   return girl.img1;
 }
@@ -432,6 +431,7 @@ const exclusivePhotos = {
     {id: "lena_ex2", src: "Lena_lvl3.jpg", name: "Bielizna specjalna"}
   ],
   zosia: [
+    {id: "zosia_ex2", src: "Zosia_exclusive1.jpg", name: "Limitowana - na łóżku"},
     {id: "zosia_ex1", src: "Zosia_lvl1.jpg", name: "Czerwona specjalna"}
   ],
   marta: [
